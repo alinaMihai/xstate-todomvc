@@ -6,25 +6,26 @@ import { useHashChange } from "./useHashChange";
 import { Todo } from "./Todo";
 import { todosMachine } from "./todosMachine";
 
-function filterTodos(state, todos) {
-  if (state.matches("all")) {
-    return todos;
-  }
-
-  if (state.matches("active")) {
+function filterTodos(filter, todos) {
+  if (filter === "active") {
     return todos.filter(todo => !todo.completed);
   }
 
-  if (state.matches("completed")) {
+  if (filter === "completed") {
     return todos.filter(todo => todo.completed);
   }
+  return todos;
 }
 
 const persistedTodosMachine = todosMachine.withConfig(
   {
     actions: {
       persist: ctx => {
-        localStorage.setItem("todos-xstate", JSON.stringify(ctx.todos));
+        try{
+          localStorage.setItem("todos-xstate", JSON.stringify(ctx.todos));
+        } catch(e) {
+          console.error(e);
+        }
       }
     }
   },
@@ -45,16 +46,22 @@ export function Todos() {
   const [state, send] = useMachine(persistedTodosMachine);
 
   useHashChange(e => {
-    send(`SHOW.${window.location.hash.slice(2) || "all"}`);
+    send({ type: "SHOW", filter: window.location.hash.slice(2) || "all" });
   });
 
-  const { todos, todo } = state.context;
+    // Capture initial state of browser hash
+    useEffect(() => {
+      window.location.hash.slice(2) &&
+        send({ type: "SHOW", filter: window.location.hash.slice(2) });
+    }, [send]);
+
+  const { todos, todo, filter } = state.context;
 
   const numActiveTodos = todos.filter(todo => !todo.completed).length;
   const allCompleted = todos.length > 0 && numActiveTodos === 0;
   const mark = !allCompleted ? "completed" : "active";
   const markEvent = `MARK.${mark}`;
-  const filteredTodos = filterTodos(state, todos);
+  const filteredTodos = filterTodos(filter, todos);
 
   return (
     <section className="todoapp" data-state={state.toStrings()}>
@@ -95,9 +102,7 @@ export function Todos() {
           {filteredTodos.map(todo => (
             <Todo
               key={todo.id}
-              todo={todo}
-              onChange={todo => send({ type: "TODO.COMMIT", todo })}
-              onDelete={id => send({ type: "TODO.DELETE", id })}
+              todoRef={todo.ref}
             />
           ))}
         </ul>

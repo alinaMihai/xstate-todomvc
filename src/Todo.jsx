@@ -1,47 +1,21 @@
 import React, { useEffect, useRef } from "react";
-import { useMachine } from "@xstate/react";
-import { todoMachine } from "./todoMachine";
+import { useActor } from "@xstate/react";
 import cn from "classnames";
 
-export function Todo({ todo, onChange, onDelete, onComplete }) {
+export function Todo({ todoRef }) {
   const inputRef = useRef(null);
-  const [state, send] = useMachine(
-    todoMachine.withConfig(
-      {
-        actions: {
-          focusInput() {
-            setTimeout(() => {
-              inputRef.current && inputRef.current.select();
-            }, 0);
-          },
-          notifyDeleted(ctx) {
-            onDelete(ctx.id);
-          },
-          notifyChanged(ctx) {
-            onChange({
-              id: ctx.id,
-              title: ctx.title,
-              completed: ctx.completed
-            });
-          }
-        }
-      },
-      todo // extended state
-    )
-  );
+  const [state, send] = useActor(todoRef);
+  const {id, completed, title } = state.context;
 
   useEffect(
     () => {
-      if (todo.completed !== completed) {
-        // "Completed" changed externally... ugh.
-        // React needs Actors.
-        send("TOGGLE_COMPLETE");
+      if(state.actions.find((action) => action.type === 'focusInput')) {
+        inputRef.current && inputRef.current.select();
       }
     },
-    [todo]
+    [state.actions, todoRef]
   );
 
-  const { completed, title } = state.context;
 
   return (
     <li
@@ -50,7 +24,7 @@ export function Todo({ todo, onChange, onDelete, onComplete }) {
         completed: completed
       })}
       data-todo-state={completed ? "completed" : "active"}
-      key={todo.id}
+      key={id}
     >
       <div className="view">
         <input
