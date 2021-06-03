@@ -47,7 +47,7 @@ const persistedTodosMachine = todosMachine.withConfig(
 );
 
 export function Todos() {
-  const [state, send] = useMachine(persistedTodosMachine);
+  const [state, send] = useMachine(persistedTodosMachine, { devTools: true });
 
   useHashChange(() => {
     send({ type: E.SHOW, filter: window.location.hash.slice(2) || "all" });
