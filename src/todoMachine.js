@@ -54,10 +54,17 @@ export const createTodoMachine = ({ id, title, completed }) =>
 							},
 							{ target: "deleted" },
 						],
-						BLUR: {
-							target: "reading",
-							actions: "notifyChanged",
-						},
+						BLUR: [
+							{
+							 	target: "reading",
+							 	actions: "notifyChanged",
+								 cond: (ctx) => ctx.title.trim().length > 0
+							},
+							{
+								target: "reading",
+								actions: assign({ title: (ctx) => ctx.prevTitle })
+							}
+					    ],
 						CANCEL: {
 							target: "reading",
 							actions: assign({ title: (ctx) => ctx.prevTitle }),
