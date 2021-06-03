@@ -91,9 +91,12 @@ export const todosMachine = createMachine({
 			actions: (ctx) => ctx.todos.forEach((todo) => todo.ref.send("SET_ACTIVE")),
 		},
 		CLEAR_COMPLETED: {
-			actions: assign({
+			actions: [
+				assign({
 				todos: (ctx) => ctx.todos.filter((todo) => !todo.completed),
-			}),
+			   }),
+			   'persist',
+		    ]
 		},
 	},
 });
