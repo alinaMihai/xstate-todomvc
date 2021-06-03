@@ -5,8 +5,10 @@ import { useMachine } from "@xstate/react";
 import { useHashChange } from "./useHashChange";
 import { Todo } from "./Todo";
 import { todosMachine } from "./todosMachine";
+import { E } from "./constants";
+import { todo } from "./types";
 
-function filterTodos(filter, todos) {
+function filterTodos(filter: string, todos: todo[]) {
   if (filter === "active") {
     return todos.filter(todo => !todo.completed);
   }
@@ -21,9 +23,9 @@ const persistedTodosMachine = todosMachine.withConfig(
   {
     actions: {
       persist: ctx => {
-        try{
+        try {
           localStorage.setItem("todos-xstate", JSON.stringify(ctx.todos));
-        } catch(e) {
+        } catch (e) {
           console.error(e);
         }
       }
@@ -32,9 +34,11 @@ const persistedTodosMachine = todosMachine.withConfig(
   // initial state from localstorage
   {
     todo: "Learn state machines",
+    filter: "all",
     todos: (() => {
       try {
-        return JSON.parse(localStorage.getItem("todos-xstate")) || [];
+        const todos = localStorage.getItem("todos-xstate") || "";
+        return JSON.parse(todos);
       } catch (e) {
         return [];
       }
@@ -45,22 +49,22 @@ const persistedTodosMachine = todosMachine.withConfig(
 export function Todos() {
   const [state, send] = useMachine(persistedTodosMachine);
 
-  useHashChange(e => {
-    send({ type: "SHOW", filter: window.location.hash.slice(2) || "all" });
+  useHashChange(() => {
+    send({ type: E.SHOW, filter: window.location.hash.slice(2) || "all" });
   });
 
-    // Capture initial state of browser hash
-    useEffect(() => {
-      window.location.hash.slice(2) &&
-        send({ type: "SHOW", filter: window.location.hash.slice(2) });
-    }, [send]);
+  // Capture initial state of browser hash
+  useEffect(() => {
+    window.location.hash.slice(2) &&
+      send({ type: E.SHOW, filter: window.location.hash.slice(2) });
+  }, [send]);
 
   const { todos, todo, filter } = state.context;
 
   const numActiveTodos = todos.filter(todo => !todo.completed).length;
   const allCompleted = todos.length > 0 && numActiveTodos === 0;
   const mark = !allCompleted ? "completed" : "active";
-  const markEvent = `MARK.${mark}`;
+  const markEvent = mark === 'completed' ? E.MARK_COMPLETED : E.MARK_ACTIVE;
   const filteredTodos = filterTodos(filter, todos);
 
   return (
@@ -71,14 +75,14 @@ export function Todos() {
           className="new-todo"
           placeholder="What needs to be done?"
           autoFocus
-          onKeyPress={e => {
+          onKeyPress={(e: React.KeyboardEvent<HTMLInputElement> & { target: HTMLInputElement }) => {
             if (e.key === "Enter") {
-              send({ type: "NEWTODO.COMMIT", value: e.target.value });
+              send({ type: E.NEWTODO_COMMIT, value: e.target.value });
             }
           }}
           onChange={e =>
             send({
-              type: "NEWTODO.CHANGE",
+              type: E.NEWTODO_CHANGE,
               value: e.target.value
             })
           }
@@ -91,7 +95,7 @@ export function Todos() {
           className="toggle-all"
           type="checkbox"
           checked={allCompleted}
-          onChange={e => {
+          onChange={() => {
             send(markEvent);
           }}
         />
@@ -147,7 +151,7 @@ export function Todos() {
           </ul>
           {numActiveTodos < todos.length && (
             <button
-              onClick={_ => send("CLEAR_COMPLETED")}
+              onClick={_ => send({ type: E.CLEAR_COMPLETED })}
               className="clear-completed"
             >
               Clear completed

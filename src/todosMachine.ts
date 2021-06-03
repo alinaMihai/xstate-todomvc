@@ -1,26 +1,29 @@
-import { createMachine, actions, spawn } from "xstate";
-import uuid from "uuid-v4";
+import { Machine, actions, spawn } from "xstate";
+import { v4 as uuid } from "uuid";
 import { createTodoMachine } from "./todoMachine";
+import { ToDosContext, ToDosEvent, TodosStateSchema } from "./types";
+import { S, E } from './constants';
 const { assign } = actions;
 
-const createTodo = (title) => {
+const createTodo = (title: string) => {
 	return {
 		id: uuid(),
 		title: title,
+		prevTitle: title,
 		completed: false,
 	};
 };
 
-export const todosMachine = createMachine({
+export const todosMachine = Machine<ToDosContext, TodosStateSchema, ToDosEvent>({
 	id: "todos",
 	context: {
 		todo: "", // new todo
 		todos: [],
 		filter: "all",
 	},
-	initial: "loading",
+	initial: S.Loading,
 	states: {
-		loading: {
+		[S.Loading]: {
 			entry: assign({
 				todos: (context) => {
 					// "Rehydrate" persisted todos
@@ -30,20 +33,20 @@ export const todosMachine = createMachine({
 					}));
 				},
 			}),
-			always: "ready",
+			always: S.Ready,
 		},
 		ready: {},
 	},
 	on: {
-		"NEWTODO.CHANGE": {
+		[E.NEWTODO_CHANGE]: {
 			actions: assign({
-				todo: (ctx, e) => e.value,
+				todo: (_, e) => e.value,
 			}),
 		},
-		"NEWTODO.COMMIT": {
+		[E.NEWTODO_COMMIT]: {
 			actions: [
 				assign({
-					todo: "", // clear todo
+					todo: (_) => "", // clear todo
 					todos: (context, event) => {
 						const newTodo = createTodo(event.value.trim());
 						return context.todos.concat({
@@ -54,9 +57,9 @@ export const todosMachine = createMachine({
 				}),
 				"persist",
 			],
-			cond: (ctx, e) => e.value.trim().length,
+			cond: (_, e) => e.value.trim().length > 0,
 		},
-		"TODO.COMMIT": {
+		[E.TODO_COMMIT]: {
 			actions: [
 				assign({
 					todos: (ctx, e) =>
@@ -69,7 +72,7 @@ export const todosMachine = createMachine({
 				"persist",
 			],
 		},
-		"TODO.DELETE": {
+		[E.TODO_DELETE]: {
 			actions: [
 				assign({
 					todos: (ctx, e) => {
@@ -79,24 +82,24 @@ export const todosMachine = createMachine({
 				"persist",
 			],
 		},
-		SHOW: {
+		[E.SHOW]: {
 			actions: assign({
 				filter: (_, event) => event.filter,
 			}),
 		},
-		"MARK.completed": {
-			actions: (ctx) => ctx.todos.forEach((todo) => todo.ref.send("SET_COMPLETED")),
+		[E.MARK_COMPLETED]: {
+			actions: (ctx) => ctx.todos.forEach((todo) => todo.ref.send({ type: E.SET_COMPLETED })),
 		},
-		"MARK.active": {
-			actions: (ctx) => ctx.todos.forEach((todo) => todo.ref.send("SET_ACTIVE")),
+		[E.MARK_ACTIVE]: {
+			actions: (ctx) => ctx.todos.forEach((todo) => todo.ref.send({ type: E.SET_ACTIVE })),
 		},
-		CLEAR_COMPLETED: {
+		[E.CLEAR_COMPLETED]: {
 			actions: [
 				assign({
-				todos: (ctx) => ctx.todos.filter((todo) => !todo.completed),
-			   }),
-			   'persist',
-		    ]
+					todos: (ctx) => ctx.todos.filter((todo) => !todo.completed),
+				}),
+				'persist',
+			]
 		},
 	},
 });
